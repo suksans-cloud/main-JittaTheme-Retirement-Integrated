@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Family Funds — เมนูหลัก</title>
-<meta name="theme-color" content="#00C2A8">
+<meta name="theme-color" content="#072340">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="portfolio/icon-192.png">
 <link rel="icon" href="portfolio/icon-192.png">
@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shell.css">
 </head>
-<body>
+<body class="mff-home">
 
 <div class="mff-app">
 
@@ -69,6 +69,21 @@
       <p>สรุปรายรับรายจ่าย</p>
     </a>
 
+    <a class="mff-card" href="calendar/index.html">
+      <span class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="8.5" cy="14.5" r="1" fill="currentColor"/><circle cx="12" cy="14.5" r="1" fill="currentColor"/></svg>
+      </span>
+      <h3>My Calendar</h3>
+      <p>ปฏิทิน · Google Calendar</p>
+    </a>
+
+    <a class="mff-card" href="my-plan/index.html">
+      <span class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5h6M9 12.5l2 2 4-4.5M9 18h6"/></svg>
+      </span>
+      <h3>My Plan</h3>
+      <p>แผนภาษี ประกันสังคม บ้าน การลงทุน และเกษียณ</p>
+    </a>
   </div>
 
 </div>
@@ -93,6 +108,8 @@
   </a>
 </nav>
 
+<script src="config.js"></script>
+<script src="admin-login.js"></script>
 <script src="data-safety.js"></script>
 <script>
 (function(){
@@ -177,7 +194,7 @@ if('serviceWorker' in navigator){
     var resultsEl=document.getElementById('mffSearchResults');
     if(!resultsEl) return;
     if(!term){
-      resultsEl.innerHTML='<div class="mff-search-empty">พิมพ์ชื่อคน กองทุน หนังสือ หรือหมวดรายจ่าย เพื่อค้นหาในทุกโมดูล'+(hasAnyCache?'':'<br><br>ยังไม่มีข้อมูลให้ค้นหา — ลองเปิดใช้งานแต่ละโมดูลก่อนสักครั้ง')+'</div>';
+      resultsEl.innerHTML='<div class="mff-search-empty">พิมพ์ชื่อคน เบอร์โทร กองทุน หนังสือ หรือหมวดรายจ่าย เพื่อค้นหาในทุกโมดูล'+(hasAnyCache?'':'<br><br>ยังไม่มีข้อมูลให้ค้นหา — ลองเปิดใช้งานแต่ละโมดูลก่อนสักครั้ง')+'</div>';
       return;
     }
     var html='', found=0;
@@ -193,15 +210,42 @@ if('serviceWorker' in navigator){
     });
     resultsEl.innerHTML=found?html:'<div class="mff-search-empty">ไม่พบรายการที่ตรงกับ "'+esc(term)+'"</div>';
   }
+  var contactSeq=0;
+  function searchContacts(term){
+    var seq=++contactSeq,resultsEl=document.getElementById('mffSearchResults');
+    term=(term||'').trim();
+    if(!resultsEl||term.length<2||!window.MFFAuth||!MFFAuth.call) return;
+    var box=document.createElement('div');box.className='mff-search-group';box.id='mffContactBox';
+    box.innerHTML='<h4>รายชื่อติดต่อ (Google Contacts)</h4><div class="mff-search-empty" style="padding:8px 0">กำลังค้นหา…</div>';
+    resultsEl.appendChild(box);
+    MFFAuth.call('searchContacts',{q:term}).then(function(r){
+      var inp=document.getElementById('mffSearchInput');
+      if(seq!==contactSeq||!inp||inp.value.trim()!==term||!document.getElementById('mffContactBox')) return;
+      var b=document.getElementById('mffContactBox'),rows='';
+      if(r&&r.ok){
+        (r.items||[]).forEach(function(c){
+          (c.phones&&c.phones.length?c.phones:['']).forEach(function(p){
+            var tel=p.replace(/[^\d+]/g,'');
+            rows+='<a class="mff-search-item" '+(tel?'href="tel:'+esc(tel)+'"':'')+'><span class="ic">📞</span><span class="tx"><b>'+esc(c.name||p)+'</b>'+(p&&c.name?'<span>'+esc(p)+'</span>':'')+'</span></a>';
+          });
+        });
+        if(!rows){ b.innerHTML='<h4>รายชื่อติดต่อ (Google Contacts)</h4><div class="mff-search-empty" style="padding:8px 0">ไม่พบในรายชื่อติดต่อ</div>'; return; }
+        var emp=resultsEl.querySelector(':scope > .mff-search-empty'); if(emp) emp.remove();
+        b.innerHTML='<h4>รายชื่อติดต่อ (Google Contacts)</h4>'+rows;
+      }else{
+        b.innerHTML='<h4>รายชื่อติดต่อ (Google Contacts)</h4><div class="mff-search-empty" style="padding:8px 0;font-size:11.5px">ค้นหารายชื่อไม่ได้: '+esc((r&&r.error)||'ไม่ทราบสาเหตุ')+'</div>';
+      }
+    }).catch(function(){ var b=document.getElementById('mffContactBox'); if(b&&seq===contactSeq) b.remove(); });
+  }
   function openSearch(){
     openSheet('ค้นหา',
       '<div class="mff-search-box">'+
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>'+
-        '<input id="mffSearchInput" placeholder="ค้นหาคน กองทุน หนังสือ รายจ่าย..." autocomplete="off">'+
+        '<input id="mffSearchInput" placeholder="ค้นหาคน กองทุน หนังสือ รายจ่าย เบอร์โทร..." autocomplete="off">'+
       '</div><div id="mffSearchResults"></div>');
     var input=document.getElementById('mffSearchInput');
     var timer=null;
-    input.addEventListener('input',function(){ clearTimeout(timer); var v=input.value; timer=setTimeout(function(){ renderSearchResults(v); },200); });
+    input.addEventListener('input',function(){ clearTimeout(timer); var v=input.value; timer=setTimeout(function(){ renderSearchResults(v); searchContacts(v); },200); });
     renderSearchResults('');
     setTimeout(function(){ input.focus(); },150);
   }
@@ -243,6 +287,34 @@ if('serviceWorker' in navigator){
     if(Array.isArray(books) && books.length===0){
       list.push({level:'info', icon:'📚', title:'ชั้นหนังสือยังว่างอยู่',
         text:'เพิ่มหนังสือเล่มแรกได้ที่ My Bookshelf', href:'bookshelf/index.html', hrefLabel:'ไปที่ My Bookshelf →'});
+    }
+
+    // Sync queue: แจ้งเตือนสิ่งที่แก้ไว้ตอน Offline และยังรอขึ้น Google Sheets
+    try{
+      var q=window.MFFDataSafety?.exportQueue?.()||[];
+      if(Array.isArray(q) && q.length){
+        list.push({level:'warn',icon:'☁️',title:'มีข้อมูลรอ Sync '+q.length+' รายการ',
+          text:'ข้อมูลบางรายการยังไม่ได้ขึ้น Google Sheets — เปิด Setting เพื่อตรวจและ Sync',href:'settings/index.html',hrefLabel:'ไปที่ Setting →'});
+      }
+    }catch(e){}
+
+    if(localStorage.getItem('mff_auto_sync_online_v1')==='0'){
+      list.push({level:'info',icon:'⚡',title:'Auto Sync ถูกปิดอยู่',
+        text:'เมื่อกลับมา Online ระบบจะไม่ Sync ให้อัตโนมัติ',href:'settings/index.html',hrefLabel:'เปิด Auto Sync →'});
+    }
+
+    if(localStorage.getItem('mff_report_email_configured')!=='1'){
+      list.push({level:'info',icon:'📧',title:'ยังไม่ได้ตั้งสรุปรายเดือนทางอีเมล',
+        text:'ตั้งค่าอีเมลและทดสอบรายงานได้จาก Setting',href:'settings/index.html',hrefLabel:'ตั้งค่ารายงาน →'});
+    }
+
+    if(localStorage.getItem('mff_retirement_latest_experiment_v1')){
+      try{
+        var rr=JSON.parse(localStorage.getItem('mff_retirement_latest_experiment_v1'));
+        var rd=rr&&rr.savedAt?new Date(rr.savedAt):null;
+        list.push({level:'info',icon:'🎯',title:'มีการทดลองแผนเกษียณที่บันทึกล่าสุด',
+          text:rd?'บันทึกล่าสุด '+rd.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'มีข้อมูลการทดลองเกษียณที่บันทึกไว้',href:'portfolio/index.html',hrefLabel:'เปิด Retirement →'});
+      }catch(e){}
     }
 
     return list;
