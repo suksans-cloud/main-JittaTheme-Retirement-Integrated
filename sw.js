@@ -1,4 +1,4 @@
-const CACHE='mff-shell-v41-v94-contacts-search';
+const CACHE='mff-shell-v42-v95-splash-b';
 const SHELL=[
   './index.html','./shell.css','./config.js','./data-safety.js','./admin-login.js',
   './money/index.html','./money/daily.html','./money/monthly.html',
