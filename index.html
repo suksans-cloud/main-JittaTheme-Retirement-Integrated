@@ -11,6 +11,25 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shell.css">
+
+<style id="hs-css">
+.hs-wrap{margin:14px 20px 2px}
+.hs-head{display:flex;justify-content:space-between;align-items:center;margin:0 2px 8px;font-size:13px;color:var(--ink,#2E3A42)}
+.hs-head button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line,#E1E6EA);background:#fff;font-size:15px;line-height:1;padding:0}
+.hs-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.hs-card{display:block;background:#fff;border:1px solid var(--line,#E1E6EA);border-radius:20px;padding:14px;text-decoration:none;color:var(--ink,#2E3A42);box-shadow:0 4px 14px #0723400b;min-width:0}
+.hs-card small{color:#5C6B74;font-size:12px}
+.hs-big{font:700 clamp(18px,5.8vw,22px)/1.25 Prompt,"Noto Sans Thai",sans-serif;color:#072340;margin:4px 0 2px;white-space:nowrap}
+.hs-sub{font-size:11.5px;margin-top:3px;color:#5C6B74;line-height:1.4;min-height:1px}
+.hs-sub.pos{color:#1F9D6C}.hs-sub.neg{color:#D12F3F}
+.hs-bar{height:6px;border-radius:99px;background:#E7EEF4;margin:8px 0 4px;overflow:hidden}
+.hs-bar i{display:block;height:100%;width:0;background:#3A6C93;transition:width .4s}.hs-bar i.warn{background:#E0654B}
+/* Home เลื่อนลงได้: การ์ดสรุปอยู่บน เมนู 6 ช่องคงขนาดเดิม */
+.mff-home .mff-app{display:block;height:auto;min-height:100svh}
+.mff-home .mff-hero-wrap{padding-bottom:22px}
+.mff-home .mff-grid{display:grid;flex:none;grid-template-rows:none;grid-auto-rows:minmax(156px,auto);margin-top:14px}
+.mff-home .mff-card{overflow:visible;padding-bottom:16px}
+</style>
 </head>
 <body class="mff-home">
 
@@ -34,6 +53,24 @@
       <path d="M0,40 C 90,60 170,25 250,38 C 330,50 400,22 460,40 L460,60 L0,60 Z" fill="#ffffff" opacity="0.1"/>
     </svg>
   </div>
+
+  <section class="hs-wrap" id="hsWrap" aria-label="สรุปภาพรวม">
+    <div class="hs-head"><b>สรุปภาพรวม</b><button type="button" id="hsEye" aria-label="ซ่อนหรือแสดงยอดเงิน">👁</button></div>
+    <div class="hs-cols">
+      <a class="hs-card" href="portfolio/index.html">
+        <small>มูลค่าพอร์ต</small>
+        <div class="hs-big hs-amt" id="hsPv">—</div>
+        <div class="hs-sub" id="hsPday"></div>
+        <div class="hs-sub" id="hsPpl"></div>
+      </a>
+      <a class="hs-card" href="money/index.html">
+        <small id="hsMLabel">ใช้จ่ายเดือนนี้</small>
+        <div class="hs-big hs-amt" id="hsMs">—</div>
+        <div class="hs-bar"><i id="hsBar"></i></div>
+        <div class="hs-sub" id="hsMbal"></div>
+      </a>
+    </div>
+  </section>
 
   <div class="mff-grid">
 
@@ -289,6 +326,24 @@ if('serviceWorker' in navigator){
         text:'เพิ่มหนังสือเล่มแรกได้ที่ My Bookshelf', href:'bookshelf/index.html', hrefLabel:'ไปที่ My Bookshelf →'});
     }
 
+    // เอกสารใกล้หมดอายุ (จาก My Profile)
+    try{
+      var ppl=readJSON('mff_profiles_cache_v1',[]), today=new Date(); today.setHours(0,0,0,0);
+      var TM=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'], due=[];
+      (Array.isArray(ppl)?ppl:[]).forEach(function(pp){
+        (Array.isArray(pp.documents)?pp.documents:[]).forEach(function(d){
+          var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(d&&d.expiry||''); if(!m) return;
+          var days=Math.round((new Date(+m[1],+m[2]-1,+m[3])-today)/86400000);
+          if(days<=60) due.push({days:days,who:pp.firstName||'สมาชิก',type:d.type||'เอกสาร',date:(+m[3])+' '+TM[+m[2]-1]+' '+(+m[1]+543)});
+        });
+      });
+      due.sort(function(a,b){return a.days-b.days}).slice(0,5).forEach(function(x){
+        list.push({level:x.days<=30?'warn':'info', icon:'🪪',
+          title:x.who+' · '+x.type+(x.days<0?' หมดอายุแล้ว '+Math.abs(x.days)+' วัน':x.days===0?' หมดอายุวันนี้':' จะหมดอายุใน '+x.days+' วัน'),
+          text:'ครบกำหนด '+x.date+' — ต่ออายุก่อนครบกำหนด', href:'profile/index.html', hrefLabel:'เปิด My Profile →'});
+      });
+    }catch(e){}
+
     // Sync queue: แจ้งเตือนสิ่งที่แก้ไว้ตอน Offline และยังรอขึ้น Google Sheets
     try{
       var q=window.MFFDataSafety?.exportQueue?.()||[];
@@ -343,5 +398,40 @@ if('serviceWorker' in navigator){
 })();
 </script>
 
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)},KEY='mff_home_hide_v1',hidden=false;
+  try{hidden=localStorage.getItem(KEY)==='1'}catch(e){}
+  function rj(k,f){try{var r=localStorage.getItem(k);return r?JSON.parse(r):f}catch(e){return f}}
+  function nf(n){return Math.round(Math.abs(n)).toLocaleString('th-TH')}
+  function sg(n){return n>=0?'+':'-'}
+  function put(id,txt,cls,money){var el=$(id);if(!el)return;el.dataset.t=txt;el.dataset.m=money===false?'0':'1';if(cls)el.className='hs-sub '+cls;paint1(el)}
+  function paint1(el){el.textContent=(hidden&&el.dataset.m==='1')?'••••••':(el.dataset.t||'')}
+  function paint(){document.querySelectorAll('#hsWrap [data-t]').forEach(paint1);var e=$('hsEye');if(e)e.textContent=hidden?'🙈':'👁'}
+  function build(){
+    var s=rj('mff_home_summary_v1',null),p=s&&s.portfolio;
+    $('hsPv').dataset.m='1';
+    if(p&&p.funds>0){
+      put('hsPv','฿'+nf(p.value));
+      var prev=p.value-p.day,dp=prev>0?p.day/prev*100:0;
+      put('hsPday','วันนี้ '+sg(p.day)+'฿'+nf(p.day)+' ('+sg(dp)+Math.abs(dp).toFixed(2)+'%)',p.day>=0?'pos':'neg');
+      put('hsPpl','กำไรรวม '+sg(p.pnl)+'฿'+nf(p.pnl)+(p.pct!=null?' ('+sg(p.pct)+Math.abs(p.pct).toFixed(1)+'%)':''),p.pnl>=0?'pos':'neg');
+    }else{ put('hsPv','—','',false); put('hsPday','เปิด My Portfolio สักครั้งเพื่อแสดงยอด','',false); }
+    var now=new Date(),mk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    var daily=rj('mff_daily_cache_v1',[]),items=rj('mff_money_cache_v3',[]);
+    if(!Array.isArray(daily))daily=[];if(!Array.isArray(items))items=[];
+    if(!items.length&&!daily.length){ put('hsMs','—','',false); put('hsMbal','เปิด My Money สักครั้งเพื่อแสดงยอด','',false); return; }
+    var inc=0,exp=0;items.forEach(function(t){if(t.month!==mk)return;var a=Number(t.amount)||0;if(t.type==='income')inc+=a;else exp+=a});
+    var dm=daily.filter(function(e){return (e.date||'').slice(0,7)===mk}).reduce(function(a,e){return a+(Number(e.amount)||0)},0);
+    var spent=exp+dm,bal=inc-spent;
+    put('hsMs','฿'+nf(spent));
+    var bar=$('hsBar');if(bar){var pc=inc>0?Math.min(100,spent/inc*100):0;bar.style.width=pc+'%';bar.className=pc>=90?'warn':''}
+    put('hsMbal',inc>0?(bal>=0?'คงเหลือ ฿'+nf(bal):'เกินรายรับ ฿'+nf(bal)):'ยังไม่ได้บันทึกรายรับเดือนนี้',bal>=0?'':'neg',inc>0);
+  }
+  $('hsEye').onclick=function(){hidden=!hidden;try{localStorage.setItem(KEY,hidden?'1':'0')}catch(e){}paint()};
+  build();paint();
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){build();paint()}});
+})();
+</script>
 </body>
 </html>

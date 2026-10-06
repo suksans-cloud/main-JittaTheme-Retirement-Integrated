@@ -3538,6 +3538,23 @@ async function saveMarketManager(){localStorage.setItem('market_assets_v3982',JS
 document.querySelectorAll('#financeSeg button').forEach(b=>b.classList.toggle('active',b.dataset.tab===financeTab));
 marketInitial();renderFinanceCards();
 document.getElementById('marketRefreshBtn')?.addEventListener('click',()=>pullMarketWatch().then(()=>showToast('อัปเดต Market Watch แล้ว')));
+function publishHomeSummary(){
+  try{
+    const codes=[...new Set(DATA.funds.map(f=>canonicalFundCode(f.name)))];
+    let value=0,inv=0,day=0,funds=0,pending=0;
+    codes.forEach(c=>{
+      const p=financeFundPortfolio(c);
+      if(p.value==null){ if(p.invested>0) pending++; return; }
+      value+=p.value; inv+=p.investedWithUnits; funds++;
+      const ch=financeFundNavChange(c); if(ch&&p.units>0) day+=p.units*ch.change;
+    });
+    if(!funds) return; // ยังไม่มี NAV (เช่นออฟไลน์) — เก็บยอดล่าสุดเดิมไว้
+    localStorage.setItem('mff_home_summary_v1',JSON.stringify({portfolio:{value:value,invested:inv,pnl:value-inv,pct:inv>0?(value-inv)/inv*100:null,day:day,funds:funds,pending:pending,at:Date.now()}}));
+  }catch(e){}
+}
+setTimeout(publishHomeSummary,5000);
+document.addEventListener('visibilitychange',function(){ if(document.hidden) publishHomeSummary(); });
+window.addEventListener('pagehide',publishHomeSummary);
 async function triggerNavUpdate(silent){
   if(!window.MFFAuth||!MFFAuth.call) return null;
   try{
