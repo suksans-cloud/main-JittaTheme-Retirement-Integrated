@@ -801,6 +801,17 @@ html,body{max-width:100%;overflow-x:hidden}
   .finance-history-filter{display:grid !important;grid-template-columns:auto minmax(0,1fr) !important;width:100% !important;max-width:100% !important;min-width:0 !important;}
   .finance-history-select{width:100% !important;min-width:0 !important;max-width:100% !important;overflow:hidden;text-overflow:ellipsis;}
   .finance-history-chart{width:100%;max-width:100%;overflow:hidden;}
+.mnh-ranges{display:flex;gap:6px;margin:10px 0 8px;overflow-x:auto;scrollbar-width:none}
+.mnh-ranges button{flex:none;border:1px solid #D5DEE6;background:#fff;color:#5C6B74;border-radius:999px;padding:7px 12px;font:600 12px inherit;font-family:inherit}
+.mnh-ranges button.on{background:#3A6C93;border-color:#3A6C93;color:#fff}
+.mnh-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:2px 0 8px}
+.mnh-stats>div{background:#F3F7FA;border-radius:12px;padding:9px 10px;min-width:0}
+.mnh-stats small{display:block;font-size:10.5px;color:#7C8DA0}
+.mnh-stats b{display:block;font-size:13px;color:#072340;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mnh-chart{position:relative}
+.mnh-chart svg{height:190px!important;max-width:100%}
+.mnh-t{font-family:inherit;fill:#7C8DA0;font-size:10px}
+.mnh-tip{position:absolute;top:0;z-index:2;background:#072340;color:#fff;border-radius:8px;padding:5px 9px;font-size:11px;white-space:nowrap;pointer-events:none}
   .finance-history-chart svg{width:100% !important;max-width:100% !important;}
   .finance-portfolio-history-stats{width:100%;max-width:100%;grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
 }
@@ -3391,6 +3402,8 @@ function openFinanceRealTransactions(){
  <div class="finance-overview-note">รายการนี้อ่านจาก transaction จริงเท่านั้น • PlanMaster/เงินลงทุนตามแผนไม่ถูกนับเป็นเงินลงทุนจริง • มูลค่า = หน่วย × NAV ล่าสุด • P/L = มูลค่า − เงินซื้อ</div>`;
  overlay.hidden=false;
 }
+const NAV_RANGES=[['1m','1 เดือน',31],['3m','3 เดือน',92],['6m','6 เดือน',183],['1y','1 ปี',366],['all','ทั้งหมด',0]];
+let navRange='3m';
 function openFinanceNavHistory(){
   const overlay=document.getElementById('financeNavHistoryOverlay'), body=document.getElementById('financeNavHistoryBody');
   if(!overlay||!body)return;
@@ -3406,19 +3419,63 @@ function openFinanceNavHistory(){
   const select=document.getElementById('financeNavHistorySelect');
   const render=()=>{
     const chosen=rows.find(r=>r.code===select.value)||rows[0];
-    const arr=chosen.arr;
+    const all=chosen.arr, last=all[all.length-1];
+    const rg=NAV_RANGES.find(r=>r[0]===navRange)||NAV_RANGES[4];
+    let arr=all;
+    if(rg[2]){
+      const lim=new Date(String(last.date).slice(0,10)); lim.setDate(lim.getDate()-rg[2]);
+      const lk=lim.toISOString().slice(0,10);
+      arr=all.filter(x=>String(x.date).slice(0,10)>=lk);
+      if(arr.length<2) arr=all.slice(-2);
+    }
     const maxRows=arr.slice().reverse().slice(0,30);
     const tr=maxRows.map(x=>{const d=String(x.date).split('-').reverse().join('/');return `<tr><td>${esc(d)}</td><td>${Number(x.nav).toFixed(4)}</td><td>${esc(x.source||'—')}</td></tr>`;}).join('');
-    const vals=arr.map(x=>Number(x.nav)).filter(Number.isFinite); const min=Math.min(...vals),max=Math.max(...vals); const range=max-min||1;
-    const w=640,h=160,p={l:42,r:10,t:10,b:28}; const xx=i=>p.l+(arr.length===1?(w-p.l-p.r)/2:(i/(arr.length-1))*(w-p.l-p.r)); const yy=v=>h-p.b-((v-min)/range)*(h-p.t-p.b);
-    const path=arr.map((x,i)=>`${i?'L':'M'} ${xx(i).toFixed(1)} ${yy(Number(x.nav)).toFixed(1)}`).join(' ');
-    const dots=arr.length<=20?arr.map((x,i)=>`<circle class="chart-value-dot" cx="${xx(i)}" cy="${yy(Number(x.nav))}" r="2.5"/>`).join(''):'';
-    const labels=[0,Math.floor((arr.length-1)/2),arr.length-1].filter((v,i,a)=>v>=0&&a.indexOf(v)===i).map(i=>{const d=String(arr[i].date).split('-');return `<text x="${xx(i)}" y="${h-8}" text-anchor="middle">${d[2]}/${d[1].slice(0,2)}</text>`;}).join('');
-    const chart=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="กราฟ NAV History"><line class="chart-axis" x1="${p.l}" x2="${p.l}" y1="${p.t}" y2="${h-p.b}"/><line class="chart-axis" x1="${p.l}" x2="${w-p.r}" y1="${h-p.b}" y2="${h-p.b}"/><path class="chart-value-line" d="${path}"/>${dots}${labels}</svg>`;
+    const vals=arr.map(x=>Number(x.nav)).filter(Number.isFinite);
+    const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||Math.abs(max)*0.02||1;
+    const first=vals[0], lastV=vals[vals.length-1], chg=lastV-first, pct=first?chg/first*100:0;
+    const dec=max<10?4:max<100?3:2;
+    const W=Math.max(260,body.clientWidth||320), H=190, p={l:50,r:16,t:16,b:28};
+    const lo=min-span*0.08, hi=max+span*0.08;
+    const xx=i=>p.l+(arr.length===1?(W-p.l-p.r)/2:(i/(arr.length-1))*(W-p.l-p.r));
+    const yy=v=>H-p.b-((v-lo)/(hi-lo))*(H-p.t-p.b);
+    const line=arr.map((x,i)=>`${i?'L':'M'} ${xx(i).toFixed(1)} ${yy(Number(x.nav)).toFixed(1)}`).join(' ');
+    const area=`${line} L ${xx(arr.length-1).toFixed(1)} ${H-p.b} L ${xx(0).toFixed(1)} ${H-p.b} Z`;
+    const up=chg>=0, col=up?'#1F9D6C':'#D12F3F';
+    const grid=[0,1,2,3].map(k=>{const v=lo+(hi-lo)*k/3,y=yy(v);return `<line x1="${p.l}" x2="${W-p.r}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E5EDF3" stroke-width="1"/><text x="${p.l-6}" y="${(y+3).toFixed(1)}" text-anchor="end" class="mnh-t">${v.toFixed(dec)}</text>`;}).join('');
+    const TM=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const longR=rg[2]===0||rg[2]>200;
+    const fmtX=d=>{const q=String(d).slice(0,10).split('-');return longR?`${TM[+q[1]-1]} ${String((+q[0]+543)%100).padStart(2,'0')}`:`${+q[2]} ${TM[+q[1]-1]}`;};
+    const nX=Math.min(4,arr.length), idxs=[...new Set(Array.from({length:nX},(_,k)=>Math.round(k*(arr.length-1)/Math.max(1,nX-1))))];
+    const xl=idxs.map((i,k)=>`<text x="${xx(i).toFixed(1)}" y="${H-8}" text-anchor="${k===0?'start':k===idxs.length-1?'end':'middle'}" class="mnh-t">${fmtX(arr[i].date)}</text>`).join('');
+    const dots=arr.length<=20?arr.map((x,i)=>`<circle cx="${xx(i).toFixed(1)}" cy="${yy(Number(x.nav)).toFixed(1)}" r="2.6" fill="${col}"/>`).join(''):'';
+    const endDot=`<circle cx="${xx(arr.length-1).toFixed(1)}" cy="${yy(lastV).toFixed(1)}" r="4" fill="${col}" stroke="#fff" stroke-width="2"/>`;
+    const chart=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="กราฟ NAV History" id="mnhSvg" style="touch-action:pan-y">
+      <defs><linearGradient id="mnhFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+      ${grid}<path d="${area}" fill="url(#mnhFill)"/><path d="${line}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>${dots}${endDot}${xl}
+      <line id="mnhCur" x1="0" x2="0" y1="${p.t}" y2="${H-p.b}" stroke="#7C8DA0" stroke-dasharray="3 3" style="display:none"/><circle id="mnhCurDot" r="4.5" fill="${col}" stroke="#fff" stroke-width="2" style="display:none"/></svg>`;
     const mobileRows=maxRows.map(x=>{const d=String(x.date).split('-').reverse().join('/');return `<div class="finance-nav-mobile-item"><div><div class="finance-nav-mobile-date">${esc(d)}</div><div class="finance-nav-mobile-source">${esc(x.source||'—')}</div></div><div class="finance-nav-mobile-value">${Number(x.nav).toFixed(4)}</div></div>`;}).join('');
-    document.getElementById('financeNavHistoryContent').innerHTML=`<div class="finance-detail-note"><b>${esc(chosen.code)}</b> • ${arr.length} วัน • แสดง NAV จริง ไม่ใช่ Portfolio Value</div><div class="finance-history-chart">${chart}</div><div class="finance-nav-table-wrap" style="overflow:auto;max-height:320px"><table class="finance-overview-table"><thead><tr><th>วันที่</th><th>NAV</th><th>แหล่งข้อมูล</th></tr></thead><tbody>${tr}</tbody></table></div><div class="finance-nav-mobile-list">${mobileRows}</div>`;
+    window.__mnhArr={arr,xx,yy,dec,W};
+    const ranges=`<div class="mnh-ranges">${NAV_RANGES.map(r=>`<button type="button" data-r="${r[0]}" class="${r[0]===navRange?'on':''}">${r[1]}</button>`).join('')}</div>`;
+    const stats=`<div class="mnh-stats"><div><small>NAV ล่าสุด</small><b>${lastV.toFixed(dec)}</b></div><div><small>เปลี่ยนแปลงในช่วง</small><b style="color:${col}">${up?'+':''}${pct.toFixed(2)}%</b></div><div><small>สูง / ต่ำ ในช่วง</small><b style="white-space:normal;font-size:12px;line-height:1.4">▲ ${max.toFixed(dec)}<br>▼ ${min.toFixed(dec)}</b></div></div>`;
+    document.getElementById('financeNavHistoryContent').innerHTML=`<div class="finance-detail-note"><b>${esc(chosen.code)}</b> • ${all.length} วันที่มีข้อมูล • แสดง NAV จริง ไม่ใช่ Portfolio Value</div>${ranges}${stats}<div class="finance-history-chart mnh-chart"><div id="mnhTip" class="mnh-tip" hidden></div>${chart}</div><div class="finance-nav-table-wrap" style="overflow:auto;max-height:320px"><table class="finance-overview-table"><thead><tr><th>วันที่</th><th>NAV</th><th>แหล่งข้อมูล</th></tr></thead><tbody>${tr}</tbody></table></div><div class="finance-nav-mobile-list">${mobileRows}</div>`;
+    wireChart();
   };
-  select.addEventListener('change',render); select.value=rows[0].code; render(); overlay.hidden=false;
+  const wireChart=()=>{
+    const content=document.getElementById('financeNavHistoryContent');
+    content.querySelectorAll('.mnh-ranges button').forEach(bt=>bt.addEventListener('click',()=>{navRange=bt.dataset.r;render();}));
+    const svg=document.getElementById('mnhSvg'); if(!svg||!window.__mnhArr) return;
+    const {arr,xx,yy,dec,W}=window.__mnhArr, tip=document.getElementById('mnhTip'), cur=document.getElementById('mnhCur'), dot=document.getElementById('mnhCurDot');
+    const show=ev=>{
+      const r=svg.getBoundingClientRect(), x=(ev.clientX-r.left)*(W/r.width);
+      let bi=0,bd=1e9; arr.forEach((v,i)=>{const d=Math.abs(xx(i)-x); if(d<bd){bd=d;bi=i;}});
+      const v=arr[bi], cx=xx(bi), cy=yy(Number(v.nav));
+      cur.setAttribute('x1',cx);cur.setAttribute('x2',cx);cur.style.display='';dot.setAttribute('cx',cx);dot.setAttribute('cy',cy);dot.style.display='';
+      tip.hidden=false; tip.textContent=String(v.date).slice(0,10).split('-').reverse().join('/')+'  •  NAV '+Number(v.nav).toFixed(dec);
+      tip.style.left=Math.min(Math.max(cx/W*r.width-70,0),r.width-150)+'px';
+    };
+    svg.addEventListener('pointerdown',show); svg.addEventListener('pointermove',e=>{if(e.pressure>0||e.pointerType==='mouse')show(e)});
+  };
+  overlay.hidden=false; select.addEventListener('change',render); select.value=rows[0].code; render();
 }
 
 function setFinanceTab(tab){

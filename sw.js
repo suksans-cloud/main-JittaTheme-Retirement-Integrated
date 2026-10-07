@@ -1,4 +1,4 @@
-const CACHE='mff-shell-v47-v100-bookshelf';
+const CACHE='mff-shell-v48-v101-nav-chart';
 const SHELL=[
   './index.html','./shell.css','./config.js','./data-safety.js','./admin-login.js','./settings-store.js',
   './money/index.html','./money/daily.html','./money/monthly.html',
