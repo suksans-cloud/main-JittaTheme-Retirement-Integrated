@@ -68,6 +68,7 @@
         <div class="hs-big hs-amt" id="hsMs">—</div>
         <div class="hs-bar"><i id="hsBar"></i></div>
         <div class="hs-sub" id="hsMbal"></div>
+        <div class="hs-sub" id="hsMprev"></div>
       </a>
     </div>
   </section>
@@ -147,6 +148,7 @@
 
 <script src="config.js"></script>
 <script src="admin-login.js"></script>
+<script src="settings-store.js"></script>
 <script src="data-safety.js"></script>
 <script>
 (function(){
@@ -291,6 +293,7 @@ if('serviceWorker' in navigator){
   function monthKeyNow(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
   function buildNotifications(){
     var list=[];
+    try{ window.MFFSettings&&MFFSettings.hydrate(); }catch(e){}
 
     var sheetsConnected = localStorage.getItem('google_sheets_connected')==='1';
     if(!sheetsConnected){
@@ -326,6 +329,23 @@ if('serviceWorker' in navigator){
         text:'เพิ่มหนังสือเล่มแรกได้ที่ My Bookshelf', href:'bookshelf/index.html', hrefLabel:'ไปที่ My Bookshelf →'});
     }
 
+    // งบรายหมวด (My Money > รายวัน)
+    try{
+      var bg=readJSON('mff_daily_budget_v1',null), dly=readJSON('mff_daily_cache_v1',[]);
+      if(bg && Array.isArray(dly)){
+        var nowD=new Date(), mk2=nowD.getFullYear()+'-'+String(nowD.getMonth()+1).padStart(2,'0'), byCat={}, tot=0;
+        dly.forEach(function(e){ if((e.date||'').slice(0,7)!==mk2) return; var a=Number(e.amount)||0; byCat[e.category]=(byCat[e.category]||0)+a; tot+=a; });
+        var over=[]; if(bg.total>0) over.push({n:'รวมทั้งเดือน',s:tot,l:Number(bg.total)});
+        Object.keys(bg.cats||{}).forEach(function(c){ var l=Number(bg.cats[c])||0; if(l>0) over.push({n:c,s:byCat[c]||0,l:l}); });
+        over.map(function(o){o.p=o.s/o.l*100;return o}).filter(function(o){return o.p>=80}).sort(function(a,b){return b.p-a.p}).slice(0,3).forEach(function(o){
+          var f=function(n){return Math.round(n).toLocaleString('th-TH')};
+          list.push({level:o.p>=100?'warn':'info', icon:'💸',
+            title:'งบ '+o.n+(o.p>=100?' เกินแล้ว ':' ใช้ไปแล้ว ')+Math.round(o.p)+'%',
+            text:'฿'+f(o.s)+' จากงบ ฿'+f(o.l)+' ของเดือนนี้', href:'money/daily.html', hrefLabel:'ดูงบ My Money →'});
+        });
+      }
+    }catch(e){}
+
     // เอกสารใกล้หมดอายุ (จาก My Profile)
     try{
       var ppl=readJSON('mff_profiles_cache_v1',[]), today=new Date(); today.setHours(0,0,0,0);
@@ -341,6 +361,22 @@ if('serviceWorker' in navigator){
         list.push({level:x.days<=30?'warn':'info', icon:'🪪',
           title:x.who+' · '+x.type+(x.days<0?' หมดอายุแล้ว '+Math.abs(x.days)+' วัน':x.days===0?' หมดอายุวันนี้':' จะหมดอายุใน '+x.days+' วัน'),
           text:'ครบกำหนด '+x.date+' — ต่ออายุก่อนครบกำหนด', href:'profile/index.html', hrefLabel:'เปิด My Profile →'});
+      });
+    }catch(e){}
+
+    // หนังสือที่ให้ยืม ใกล้ครบกำหนด/เกินกำหนด (จาก My Bookshelf)
+    try{
+      var shelf=readJSON('mff_bookshelf_cache_v1',[]), t0=new Date(); t0.setHours(0,0,0,0);
+      var BM=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'], lend=[];
+      (Array.isArray(shelf)?shelf:[]).forEach(function(bk){
+        var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(bk&&bk.dueDate||''); if(!bk.borrower||!m) return;
+        var days=Math.round((new Date(+m[1],+m[2]-1,+m[3])-t0)/86400000);
+        if(days<=3) lend.push({days:days,title:bk.title||'หนังสือ',who:bk.borrower,date:(+m[3])+' '+BM[+m[2]-1]+' '+(+m[1]+543)});
+      });
+      lend.sort(function(a,b){return a.days-b.days}).slice(0,4).forEach(function(x){
+        list.push({level:x.days<0?'warn':'info', icon:'📚',
+          title:x.who+' ยืม "'+x.title+'" '+(x.days<0?'เกินกำหนด '+Math.abs(x.days)+' วัน':x.days===0?'ครบกำหนดวันนี้':'ครบกำหนดใน '+x.days+' วัน'),
+          text:'กำหนดคืน '+x.date, href:'bookshelf/index.html', hrefLabel:'เปิด My Bookshelf →'});
       });
     }catch(e){}
 
@@ -427,6 +463,10 @@ if('serviceWorker' in navigator){
     put('hsMs','฿'+nf(spent));
     var bar=$('hsBar');if(bar){var pc=inc>0?Math.min(100,spent/inc*100):0;bar.style.width=pc+'%';bar.className=pc>=90?'warn':''}
     put('hsMbal',inc>0?(bal>=0?'คงเหลือ ฿'+nf(bal):'เกินรายรับ ฿'+nf(bal)):'ยังไม่ได้บันทึกรายรับเดือนนี้',bal>=0?'':'neg',inc>0);
+    var pd=new Date(now.getFullYear(),now.getMonth()-1,1),pk=pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0');
+    var pExp=0;items.forEach(function(t){if(t.month===pk&&t.type!=='income')pExp+=Number(t.amount)||0});
+    var pDm=daily.filter(function(e){return (e.date||'').slice(0,7)===pk}).reduce(function(a,e){return a+(Number(e.amount)||0)},0);
+    if(pExp+pDm>0) put('hsMprev','เดือนก่อนใช้ ฿'+nf(pExp+pDm)); else put('hsMprev','','',false);
   }
   $('hsEye').onclick=function(){hidden=!hidden;try{localStorage.setItem(KEY,hidden?'1':'0')}catch(e){}paint()};
   build();paint();
