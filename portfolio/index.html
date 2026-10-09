@@ -967,8 +967,15 @@ html,body{max-width:100%;overflow-x:hidden}
   }
 
 </style>
+<style>
+#privacyEye{position:fixed;right:14px;top:86px;z-index:9999;border:1px solid #dbe3e8;border-radius:999px;background:#fff;padding:9px 12px;font-size:20px;box-shadow:0 2px 8px #00152b18}
+body.mff-hide-money .asset-legend-money,body.mff-hide-money .asset-legend-pct,body.mff-hide-money .mtx-nums,body.mff-hide-money .mtx-save,body.mff-hide-money .mat-act,body.mff-hide-money .mat-chip,body.mff-hide-money .kpi-value,body.mff-hide-money .amount,body.mff-hide-money .money,body.mff-hide-money .amt,body.mff-hide-money [data-money]{filter:blur(7px);user-select:none}
+.mtx-tax{margin-top:14px}.mtx-tax>summary{cursor:pointer;font-weight:700;padding:16px 0}.mtx-tax-body{padding-bottom:8px}
+</style>
 </head>
 <body>
+<button id="privacyEye" type="button" aria-label="ซ่อนหรือแสดงตัวเลข" title="ซ่อนหรือแสดงตัวเลข">👁</button>
+<script>(function(){try{if(localStorage.getItem("mff_hide_money_v1")==="1")document.body.classList.add("mff-hide-money")}catch(e){}var b=document.getElementById("privacyEye");function paint(){b.textContent=document.body.classList.contains("mff-hide-money")?"🙈":"👁"}paint();b.onclick=function(){document.body.classList.toggle("mff-hide-money");try{localStorage.setItem("mff_hide_money_v1",document.body.classList.contains("mff-hide-money")?"1":"0")}catch(e){}paint()}})();</script>
 
 <div class="topbar">
   <div class="brand">
@@ -2197,15 +2204,15 @@ function renderTaxTracker(){
       ${o.rmf.plan>0?line('RMF',o.rmf,rmfCap):''}${o.esg.plan>0?line('Thai ESG',o.esg,esgCap):''}
       ${saved>0?`<div class="mtx-save">ประหยัดภาษีโดยประมาณถ้าซื้อตามแผน ≈ <b>${baht0(saved)}</b></div>`:''}</div>`;
   }).join('');
-  const open=panel.querySelector('details')?.open;
-  panel.innerHTML=`<div class="panel-title">สิทธิ์ลดหย่อนภาษี RMF / Thai ESG • ปีภาษี ${Y+543}</div>
+  const settingsOpen=panel.querySelector('.mtx-set')?.open;
+  panel.innerHTML=`<details class="mat-box mtx-tax"><summary>สิทธิ์ลดหย่อนภาษี RMF / Thai ESG • ปีภาษี ${Y+543}</summary><div class="mtx-tax-body">
     <div class="mtx-sub">คำนวณจากแผนลงทุนรายเดือนของปีนี้ (แถบเข้ม = ซื้อแล้วถึงเดือนนี้ แถบจาง = รวมแผนทั้งปี)</div>${blocks}
     <details class="mtx-set"><summary>⚙️ เกณฑ์ที่ใช้คำนวณ (แก้ได้)</summary>
       <div class="mtx-inputs"><label>เพดาน % ของรายได้<input type="number" data-g="pct" value="${P.pct}"></label>
       <label>เพดาน RMF (รวมออมเกษียณอื่น)<input type="number" data-g="rmfCap" value="${P.rmfCap}"></label>
       <label>เพดาน Thai ESG<input type="number" data-g="esgCap" value="${P.esgCap}"></label></div>
-      <div class="mat-note">ค่าเริ่มต้นตามเกณฑ์ที่เผยแพร่: RMF ไม่เกิน 30% ของรายได้ และไม่เกิน 500,000 บาท (รวมกองทุนเกษียณอื่นไม่เกิน 500,000) • Thai ESG ไม่เกิน 30% และไม่เกิน 300,000 บาท แยกจากกลุ่มเกษียณ โปรดตรวจเกณฑ์ของปีภาษีนี้กับกรมสรรพากรก่อนตัดสินใจ ข้อมูลนี้ไม่ใช่คำแนะนำด้านภาษี</div></details>`;
-  if(open) panel.querySelector('details').open=true;
+      <div class="mat-note">ค่าเริ่มต้นตามเกณฑ์ที่เผยแพร่: RMF ไม่เกิน 30% ของรายได้ และไม่เกิน 500,000 บาท (รวมกองทุนเกษียณอื่นไม่เกิน 500,000) • Thai ESG ไม่เกิน 30% และไม่เกิน 300,000 บาท แยกจากกลุ่มเกษียณ โปรดตรวจเกณฑ์ของปีภาษีนี้กับกรมสรรพากรก่อนตัดสินใจ ข้อมูลนี้ไม่ใช่คำแนะนำด้านภาษี</div></details></div></details>`;
+  if(settingsOpen) panel.querySelector('.mtx-set').open=true;
   panel.querySelectorAll('[data-o]').forEach(el=>el.addEventListener('change',()=>{
     const cur=Object.assign({},MFFSettings.get('taxPlan',{})); cur.owners=Object.assign({},cur.owners||{});
     cur.owners[el.dataset.o]=Object.assign({},cur.owners[el.dataset.o]||{},{[el.dataset.f]:Math.max(0,parseFloat(el.value)||0)});

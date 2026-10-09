@@ -10,8 +10,11 @@
 <link rel="stylesheet" href="../shell.css">
 <script src="../data-safety.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>#privacyEye{position:fixed;right:14px;top:78px;z-index:9999;border:1px solid #dbe3e8;border-radius:999px;background:#fff;padding:8px 11px;font-size:20px;box-shadow:0 2px 8px #00152b18}body.mff-hide-money .t-amt,body.mff-hide-money .mff-sheet-row .amt,body.mff-hide-money #liveBalance,body.mff-hide-money .money-amount,body.mff-hide-money .amount-value{filter:blur(7px);user-select:none}</style>
 </head>
 <body>
+<button id="privacyEye" type="button" aria-label="ซ่อนหรือแสดงตัวเลข" title="ซ่อนหรือแสดงตัวเลข">👁</button>
+<script>(function(){try{if(localStorage.getItem("mff_hide_money_v1")==="1")document.body.classList.add("mff-hide-money")}catch(e){}var b=document.getElementById("privacyEye");function paint(){b.textContent=document.body.classList.contains("mff-hide-money")?"🙈":"👁"}paint();b.onclick=function(){document.body.classList.toggle("mff-hide-money");try{localStorage.setItem("mff_hide_money_v1",document.body.classList.contains("mff-hide-money")?"1":"0")}catch(e){}paint()}})();</script>
 
 <div class="mff-app" style="padding-bottom:20px">
 
