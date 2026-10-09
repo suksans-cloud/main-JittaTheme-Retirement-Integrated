@@ -22,6 +22,9 @@
 .hs-big{font:700 clamp(18px,5.8vw,22px)/1.25 Prompt,"Noto Sans Thai",sans-serif;color:#072340;margin:4px 0 2px;white-space:nowrap}
 .hs-sub{font-size:11.5px;margin-top:3px;color:#5C6B74;line-height:1.4;min-height:1px}
 .hs-sub.pos{color:#1F9D6C}.hs-sub.neg{color:#D12F3F}
+.hs-card[hidden]{display:none}
+.hs-next{grid-column:1/-1}
+.hs-nt{font:600 15px/1.35 "Noto Sans Thai",sans-serif;color:#072340;margin:4px 0 2px;overflow-wrap:anywhere}
 .hs-bar{height:6px;border-radius:99px;background:#E7EEF4;margin:8px 0 4px;overflow:hidden}
 .hs-bar i{display:block;height:100%;width:0;background:#3A6C93;transition:width .4s}.hs-bar i.warn{background:#E0654B}
 /* Home เลื่อนลงได้: การ์ดสรุปอยู่บน เมนู 6 ช่องคงขนาดเดิม */
@@ -69,6 +72,11 @@
         <div class="hs-bar"><i id="hsBar"></i></div>
         <div class="hs-sub" id="hsMbal"></div>
         <div class="hs-sub" id="hsMprev"></div>
+      </a>
+      <a class="hs-card hs-next" id="hsNext" href="calendar/index.html" hidden>
+        <small>📅 นัดถัดไป</small>
+        <div class="hs-nt" id="hsNextT"></div>
+        <div class="hs-sub" id="hsNextW"></div>
       </a>
     </div>
   </section>
@@ -470,7 +478,35 @@ if('serviceWorker' in navigator){
   }
   $('hsEye').onclick=function(){hidden=!hidden;try{localStorage.setItem(KEY,hidden?'1':'0')}catch(e){}paint()};
   build();paint();
-  document.addEventListener('visibilitychange',function(){if(!document.hidden){build();paint()}});
+  /* ---------- นัดถัดไปจาก Google Calendar (ผ่านตัวกลาง Apps Script) ---------- */
+  var NK='mff_next_event_v1', TD=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'], TM2=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  function evDate(o){ if(!o) return null; if(o.dateTime) return new Date(o.dateTime); if(o.date){var p=o.date.split('-');return new Date(+p[0],+p[1]-1,+p[2])} return null }
+  function paintNext(ev){
+    var box=$('hsNext'); if(!box) return;
+    var st=ev&&evDate(ev.st), en=ev&&evDate(ev.en);
+    if(!ev||!st||(en&&en<=new Date())){ box.hidden=true; return; }
+    var now=new Date(), t0=new Date(now.getFullYear(),now.getMonth(),now.getDate()), d0=new Date(st.getFullYear(),st.getMonth(),st.getDate());
+    var diff=Math.round((d0-t0)/86400000), allDay=!!ev.st.date, hm=allDay?'':(' '+String(st.getHours()).padStart(2,'0')+':'+String(st.getMinutes()).padStart(2,'0')+' น.');
+    var day=diff<=0?'วันนี้':diff===1?'พรุ่งนี้':TD[st.getDay()]+' '+st.getDate()+' '+TM2[st.getMonth()];
+    $('hsNextT').textContent=ev.s||'(ไม่มีชื่อ)';
+    $('hsNextW').textContent=day+(allDay?' • ทั้งวัน':hm)+(ev.loc?' • '+ev.loc:'');
+    box.hidden=false;
+  }
+  function nextEvent(){
+    var c=rj(NK,null); if(c&&c.ev) paintNext(c.ev);
+    if(c&&Date.now()-c.at<10*60e3) return;
+    if(!navigator.onLine||!sessionStorage.getItem('mff_cal_token')) return;
+    var url='https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin='+encodeURIComponent(new Date().toISOString())+'&maxResults=8&singleEvents=true&orderBy=startTime&timeMax='+encodeURIComponent(new Date(Date.now()+30*864e5).toISOString());
+    fetch(url,{headers:{Authorization:'Bearer x'}}).then(function(r){return r.ok?r.json():null}).then(function(j){
+      if(!j) return;
+      var e=(j.items||[]).filter(function(x){return x.status!=='cancelled'})[0], ev=e?{s:e.summary||'',st:e.start,en:e.end,loc:e.location||''}:null;
+      try{localStorage.setItem(NK,JSON.stringify({at:Date.now(),ev:ev}))}catch(x){}
+      paintNext(ev);
+    }).catch(function(){});
+  }
+  nextEvent();
+
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){build();paint();nextEvent()}});
 })();
 </script>
 </body>

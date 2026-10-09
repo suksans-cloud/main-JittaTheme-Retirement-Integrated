@@ -1,4 +1,4 @@
-const CACHE='mff-shell-v50-v103-plan-feed';
+const CACHE='mff-shell-v51-v104-next-event';
 const SHELL=[
   './index.html','./shell.css','./config.js','./data-safety.js','./admin-login.js','./settings-store.js',
   './money/index.html','./money/daily.html','./money/monthly.html',
